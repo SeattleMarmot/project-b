@@ -1,6 +1,6 @@
 let bgImg, bgBlur1, bgBlur2;
-let pixelatedGraphics = [];  // 预渲染多个不同大小的像素化图像
-let pixelSizes = [18, 28, 34, 42];  // 4种马赛克大小
+let pixelatedGraphics = [];  //预渲染像素图像
+let pixelSizes = [18, 28, 34, 42];  //4种马赛克大小
 
 let sceneStep = 0;
 let sceneTimer = 0;
@@ -10,12 +10,11 @@ let showingWordRegionIdx = -1;
 let typeInterval = 3;
 let charIdx = 0;
 let wordDisplayTimer = 0;
-let finalMagnifierFrame;
 
-// ============ Scene 0-1-2 字幕相关变量 ============
-let lineIdx = 0;     // 当前字幕索引
+//============ Scene 012字幕变量 ============
+let lineIdx = 0;     //当前字幕
 
-// 第一段字幕（开场前）
+//开场前字幕
 let linesBeforeStart = [
   "Hey.",
   "Call from 2025.     A thousand yrs ago.",
@@ -57,14 +56,14 @@ let pauseAfterStart = [
 ];
 
 let btnX, btnY, btnW, btnH;
-let currentLines = linesBeforeStart;  // 当前使用的字幕数组
-let currentPauses = pauseBeforeStart;  // 当前使用的停顿数组
+let currentLines = linesBeforeStart;  //当前使用的字幕数组
+let currentPauses = pauseBeforeStart;  //当前使用的停顿数组
 
-// ============ Scene 3 碎片相关变量 ============
+//============ Scene 3 碎片变量 ============
 let fragments = [];
 let fragmentsInitialized = false;
 
-// 区域定义（13个多边形）
+//碎片（13个多边形）
 let regions = [
   {
     name: "Tree(big)",
@@ -167,14 +166,13 @@ let audios = [];
 //let audioHeartbeat, audioClock;
 let hasPlayedAudio = {};
 
-// ============ Fragment 碎片类（修复版 - 抖动减慢）============
+//============ Fragment ============
 class Fragment {
   constructor(regionIndex, drawW, drawH, offsetX, offsetY, scaleX, scaleY) {
     this.regionIndex = regionIndex;
     this.region = regions[regionIndex];
     this.name = this.region.name;
     
-    // 保存绘图参数
     this.drawW = drawW;
     this.drawH = drawH;
     this.offsetX = offsetX;
@@ -182,7 +180,6 @@ class Fragment {
     this.scaleX = scaleX;
     this.scaleY = scaleY;
     
-    // 计算多边形中心点（原始图像坐标）
     let sumX = 0, sumY = 0;
     for (let pt of this.region.points) {
       sumX += pt.x;
@@ -191,37 +188,33 @@ class Fragment {
     this.centerX = sumX / this.region.points.length;
     this.centerY = sumY / this.region.points.length;
     
-    // 初始屏幕位置（原位置）
     this.startScreenX = offsetX + this.centerX * scaleX;
     this.startScreenY = offsetY + this.centerY * scaleY;
     
-    // 缩放比例（碎片缩小到原来的0.35倍）
+    //后面的单词碎片缩小
     this.fragScale = 0.35;
     
-    // 计算目标位置（屏幕坐标，分布在画布边缘）
+    //分布在画布边缘）
     this.calculateTargetPosition();
     
-    // 当前屏幕位置
     this.screenX = this.startScreenX;
     this.screenY = this.startScreenY;
     
-    // 抖动相关
+    //抖动
     this.trembleX = 0;
     this.trembleY = 0;
     this.trembleIntensity = 0;
     
-    // 为每个碎片创建独特的noise偏移量
+    //每个碎片有不同的震动效果
     this.noiseOffsetX = random(1000);
     this.noiseOffsetY = random(1000);
     
-    // 动画进度
     this.animationProgress = 0;
     
-    // 透明度
     this.alpha = 180;
   }
   
-  // 计算目标位置（分布在屏幕边缘，避开中心）
+  //计算目标位置 碎片分布在屏幕边缘
   calculateTargetPosition() {
     let idx = this.regionIndex;
     let margin = 120;
@@ -241,42 +234,33 @@ class Fragment {
     }
   }
   
-  // 更新碎片状态（抖动减慢5-6倍）
   update(elapsedFrames) {
     if (this.animationProgress < 1) {
-      this.animationProgress = min(1, elapsedFrames / 120);
-      let easedProgress = this.easeOutCubic(this.animationProgress);
-      this.screenX = lerp(this.startScreenX, this.targetX, easedProgress);
-      this.screenY = lerp(this.startScreenY, this.targetY, easedProgress);
-    }
+    this.animationProgress = min(1, elapsedFrames / 120);
+    let easedProgress = sin(this.animationProgress * PI / 2);
     
-    // 抖动强度增长速度减慢6倍（从0.015改为0.0025）
-    // 并且延迟开始时间（从移动结束后300帧开始，即5秒后）
+    this.screenX = lerp(this.startScreenX, this.targetX, easedProgress);
+    this.screenY = lerp(this.startScreenY, this.targetY, easedProgress);
+  }
+    
     if (elapsedFrames > 300) {
       let trembleTime = elapsedFrames - 300;
       this.trembleIntensity = min(25, trembleTime * 0.0025);
     }
     
-    // 使用noise代替random，让抖动更平滑自然
-    // noise速度也减慢（乘以0.02而不是直接用帧数）
     let noiseSpeed = 0.02;
     let noiseValX = noise(this.noiseOffsetX + elapsedFrames * noiseSpeed);
     let noiseValY = noise(this.noiseOffsetY + elapsedFrames * noiseSpeed);
     
-    // 将noise值(0-1)映射到(-1, 1)范围
     this.trembleX = (noiseValX - 0.5) * 2 * this.trembleIntensity;
     this.trembleY = (noiseValY - 0.5) * 2 * this.trembleIntensity;
   }
-  
-  easeOutCubic(t) {
-    return 1 - pow(1 - t, 3);
-  }
+
   
   draw() {
     push();
     translate(this.screenX + this.trembleX, this.screenY + this.trembleY);
     scale(this.fragScale);
-    
     fill(255, this.alpha);
     stroke(255);
     strokeWeight(3 / this.fragScale);
@@ -295,7 +279,6 @@ class Fragment {
     textSize(24 / this.fragScale);
     textStyle(NORMAL);
     text(this.name, 0, 0);
-    
     pop();
   }
 }
@@ -320,18 +303,17 @@ function setup() {
   
   pixelDensity(1);
   
-  // 初始化从Scene 1（第一段字幕）开始
   sceneStep = 1;
   currentLines = linesBeforeStart;
   currentPauses = pauseBeforeStart;
   
-  // 按钮位置
+  //按钮
   btnW = 200;
   btnH = 60;
   btnX = width / 2 - btnW / 2;
   btnY = height / 2 + 50;
   
-  // ============ 优化：缩小图像后再模糊 ============
+  // ============ ai告诉我的优化方法：缩小图像后再模糊 ============
   console.log("正在生成模糊图像...");
   let smallW = floor(bgImg.width / 4);
   let smallH = floor(bgImg.height / 4);
@@ -346,7 +328,7 @@ function setup() {
   bgBlur2.filter(BLUR, 8);
   console.log("模糊图像生成完成！");
   
-  // ============ 预渲染多个不同大小的像素化图像 ============
+  // ============ 也是ai教的：预渲染多个不同大小的像素化图像 ============
   console.log("正在预渲染像素化图像...");
   for (let i = 0; i < pixelSizes.length; i++) {
     pixelatedGraphics[i] = createGraphics(bgImg.width, bgImg.height);
@@ -364,7 +346,7 @@ function setup() {
   //audioClock.pause();
 }
 
-// ============ 预渲染像素化图像 ============
+// ============ 👍：预渲染像素化图像 ============
 function preRenderPixelatedImage(pg, blockSize) {
   bgImg.loadPixels();
   pg.noStroke();
@@ -381,9 +363,8 @@ function preRenderPixelatedImage(pg, blockSize) {
   }
 }
 
-// ============ 根据时间获取当前像素化等级 ============
+//获取当前像素化是四档的哪一档
 function getCurrentPixelLevel(timer, totalFrames) {
-  // 分4个阶段，每阶段马赛克变大一级
   let stage = floor(timer / (totalFrames / 4));
   stage = min(stage, pixelSizes.length - 1);
   return stage;
@@ -406,15 +387,15 @@ function draw() {
   }
   imageMode(CENTER);
 
-  // ============ Scene 0: 开场按钮界面 ============
+  //标题按钮
   if (sceneStep === 0) {
     drawStartScreen();
   }
-  // ============ Scene 1-2: 打字机字幕阶段（黑屏）============
+  //字幕
   else if (sceneStep === 1) {
     runTypewriter();
   }
-  // ============ Scene 3: 清晰图片 + 字幕 ============
+  //清晰图片和字幕
   else if (sceneStep === 2) {
     //playAudioOnce(voiceAudios[0], 'take_a_close_look');
     image(bgImg, width/2, height/2, drawW, drawH);
@@ -488,10 +469,10 @@ function draw() {
     }
   }
   else if (sceneStep === 9) {
-    // 放大镜阶段：20秒（1200帧）
+    //放大镜阶段20秒
     let totalFrames = 1200;
     
-    // 根据时间获取当前像素化等级
+    //根据时间获取当前像素化等级
     let pixelLevel = getCurrentPixelLevel(sceneTimer, totalFrames);
     let currentBlockSize = pixelSizes[pixelLevel];
     
@@ -500,7 +481,6 @@ function draw() {
     
     drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clearDist);
     
-    // 显示字幕
     if (sceneTimer < 90) {
       //if (sceneTimer === 0) {
       //  playAudioOnce(voiceAudios[2], 'try');
@@ -518,25 +498,18 @@ function draw() {
       drawSubtitle("Try.");
     }
     
-    // 一直显示倒计时
+    //倒计时显示
     let remainingFrames = totalFrames - sceneTimer;
     drawCountdown(ceil(remainingFrames / 60));
     
-    // 处理点击区域显示单词逻辑
+    //点击区域显示单词
     if (showingWordRegionIdx >= 0) {
       drawHighlightedRegion(drawW, drawH);
     }
-    
     sceneTimer++;
-    if (sceneTimer > totalFrames) {
-      // 保存最后一帧（放大镜结束时的样子）
-      finalMagnifierFrame = get();
-      sceneStep = 10; 
-      sceneTimer = 0;
-    }
   }
+  //放大镜环节后的两句字幕
   else if (sceneStep === 10) {
-    // 黑屏上的两句字幕
     if (sceneTimer < 180) {
       //if (sceneTimer === 1) {
       //  playAudioOnce(voiceAudios[5], 'you_remember');
@@ -552,18 +525,18 @@ function draw() {
       drawSubtitle(subtitle);
     }
     else {
-      // 字幕结束，进入"死亡动效"阶段
+      //进入闪烁和碎裂
       sceneStep = 11;
       sceneTimer = 0;
     }
     sceneTimer++;
   }
-  // ============ Scene 11: 死亡动效阶段（黑白快速闪烁）============
+  //闪烁
   else if (sceneStep === 11) {
     let t = sceneTimer;
-    let deathDuration = 210;  // 3.5秒
+    let deathDuration = 210;
     
-    // 抖动幅度逐渐增大
+    //抖动幅度不断变大
     let shakeAmp = map(t, 0, deathDuration, 0, 15);
     let shakeX = sin(t * 0.3) * shakeAmp;
     let shakeY = cos(t * 0.45) * shakeAmp;
@@ -571,10 +544,10 @@ function draw() {
     push();
     translate(shakeX, shakeY);
     
-    // 显示最模糊的像素化图像（pixelSize=42，即索引3）
+    //最模糊的像素图（pixelSize42）
     image(pixelatedGraphics[3], width/2, height/2, drawW, drawH);
     
-    // 在图像上绘制所有区域标注（黑白快速闪烁）
+    //在图像上绘制所有区域标注名称（黑白快速闪烁）
     let offsetX = width/2 - drawW/2;
     let offsetY = height/2 - drawH/2;
     let scaleX = drawW / bgImg.width;
@@ -583,18 +556,22 @@ function draw() {
     for (let i = 0; i < regions.length; i++) {
       let region = regions[i];
       
-      // 使用noise生成快速闪烁（速度：0.5）
+      //用noise生成快速闪烁
       let noiseVal = noise(region.noiseOffset + t * 0.5);
-      // 透明度范围：30-200
       let polygonAlpha = map(noiseVal, 0, 1, 30, 200);
       
-      // 绘制多边形边框（只用黑白，根据noise值决定）
+      //多边形边框也黑白切换
       push();
-      // noise值大于0.5用白色，小于0.5用黑色，模拟快速黑白闪烁
-      let grayValue = noiseVal > 0.5 ? 255 : 0;
+      let grayValue;
+      if (noiseVal > 0.5) {
+        grayValue = 255;
+      } else {
+        grayValue = 0;
+      }
       
-      fill(grayValue, polygonAlpha * 0.6);  // 填充带透明度
-      stroke(grayValue, polygonAlpha);      // 边框
+      fill(grayValue, polygonAlpha * 0.6); //多边形填充的透明度
+      stroke(grayValue, polygonAlpha);//多边形的边框
+
       strokeWeight(3);
       beginShape();
       for (let pt of region.points) {
@@ -605,12 +582,12 @@ function draw() {
       endShape(CLOSE);
       pop();
       
-      // 绘制区域名称（文字保持白色）
+      //区域名称（文字保持白色）
       let labelX = offsetX + region.labelX * scaleX;
       let labelY = offsetY + region.labelY * scaleY;
       push();
-      fill(255, polygonAlpha * 1.2);  // 白色文字
-      stroke(0, polygonAlpha * 0.8);   // 黑色描边
+      fill(255, polygonAlpha * 1.2);
+      stroke(0, polygonAlpha * 0.8);
       strokeWeight(3);
       textAlign(CENTER, CENTER);
       textSize(32);
@@ -618,15 +595,6 @@ function draw() {
       text(region.name, labelX, labelY);
       pop();
     }
-    
-    pop();
-    
-    // 整体亮度闪烁效果（叠加白色层）
-    let flashIntensity = (sin(t * 0.4) * 0.5 + 0.5) * 80;
-    push();
-    fill(255, flashIntensity);
-    noStroke();
-    rect(0, 0, width, height);
     pop();
     
     sceneTimer++;
@@ -637,14 +605,14 @@ function draw() {
       fragmentsInitialized = false;
     }
   }
-  // ============ Scene 12: 碎片化阶段 ============
+  //裂开
   else if (sceneStep === 12) {
     let offsetX = width/2 - drawW/2;
     let offsetY = height/2 - drawH/2;
     let scaleX = drawW / bgImg.width;
     let scaleY = drawH / bgImg.height;
     
-    // 第一帧：初始化碎片
+    //初始化碎片
     if (fragmentsInitialized === false) {
       fragments = [];
       for (let i = 0; i < regions.length; i++) {
@@ -653,16 +621,15 @@ function draw() {
       fragmentsInitialized = true;
     }
     
-    // 立即显示碎片（从第0帧开始）
+    //显示碎片
     let elapsedFrames = sceneTimer;
     
-    // 更新并绘制所有碎片
+    //更新并绘制所有碎片
     for (let frag of fragments) {
       frag.update(elapsedFrames);
       frag.draw();
     }
-    
-    // 白色闪光叠加在碎片之上（前30帧）
+    //开始的半秒白色闪光叠加在碎片之上
     if (sceneTimer < 30) {
       let flashAlpha = map(sceneTimer, 0, 30, 220, 0);
       push();
@@ -671,8 +638,7 @@ function draw() {
       rect(0, 0, width, height);
       pop();
     }
-    
-    // 显示字幕
+    //字幕
     if (sceneTimer >= 30) {
       if (sceneTimer < 210) {
         drawSubtitle("Time separates meaning into pieces.");
@@ -680,12 +646,11 @@ function draw() {
         drawSubtitle("It will not wait.");
       }
     }
-    
     sceneTimer++;
   }
 }
 
-// ============ Scene 0: 开场界面（标题+按钮）============
+//标题+按钮
 function drawStartScreen() {
   textAlign(CENTER, CENTER);
   textSize(72);
@@ -724,7 +689,7 @@ function drawStartScreen() {
   text("START", width / 2, btnY + btnH / 2);
 }
 
-// ============ Scene 1: 打字机字幕（黑屏）============
+//打字机字幕
 function runTypewriter() {
   textAlign(CENTER, CENTER);
   textSize(36);
@@ -732,7 +697,8 @@ function runTypewriter() {
   fill(255);
 
   let line = currentLines[lineIdx];
-  let currentPause = currentPauses[lineIdx];  //当前字幕的停顿时间
+  //当前字幕的停顿时间
+  let currentPause = currentPauses[lineIdx];
 
   //播放配音（一次，切换字幕时触发）
   // if (charIdx === 0) {
@@ -748,11 +714,11 @@ function runTypewriter() {
 
   //打字机效果
   if (charIdx < line.length) {
-    if (frameCount % 4 === 0) {  // 打字机速度=4帧
+    if (frameCount % 4 === 0) {//速度
       charIdx++;
     }
   } else {
-    //一行打完后停currentPause帧（等字幕说完）
+    //一行打完后停currentPause帧 用来配合字幕播报的速度
     if (sceneTimer < currentPause) {
       sceneTimer++;
     } else {
@@ -760,17 +726,17 @@ function runTypewriter() {
       charIdx = 0;
       sceneTimer = 0;
       
-      // 判断是否打完当前段落
+      //判断是否打完
       if (lineIdx >= currentLines.length) {
         if (currentLines === linesBeforeStart) {
-          // 第一段打完，显示开场界面
+          // 第一段打完 开场
           sceneStep = 0;
           lineIdx = 0;
           charIdx = 0;
-          currentLines = linesAfterStart;  // 切换到第二段字幕
+          currentLines = linesAfterStart;  //切换第二段
           currentPauses = pauseAfterStart;
         } else {
-          // 第二段打完，进入Scene 2（图片场景）
+          //第二段打完进入图片
           sceneStep = 2;
           sceneTimer = 0;
           lineIdx = 0;
@@ -779,12 +745,11 @@ function runTypewriter() {
       }
     }
   }
-
   let toDisplay = line.substring(0, charIdx);
   text(toDisplay, width / 2, height / 2);
 }
 
-// 绘制高亮多边形和打字机文字
+//点击对应区域会跳出来碎片名称，同时区域高亮
 function drawHighlightedRegion(drawW, drawH) {
   if (showingWordRegionIdx < 0) return;
   
@@ -830,7 +795,9 @@ function drawHighlightedRegion(drawW, drawH) {
   text(toDisplay, labelX, labelY);
 }
 
-// 点在多边形内判断（ray casting 算法）
+//计算点在哪个碎片内
+//（ai教的ray casting 算法）
+//即从点出发画一条水平射线，这条射线穿过多边形边界奇数次则点在多边形内部，偶数次外部
 function pointInPolygon(px, py, polygon) {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -849,17 +816,16 @@ function pointInPolygon(px, py, polygon) {
   return inside;
 }
 
-// ============ 显示预渲染的像素化图像 ============
+// ============ ai教的减小计算量的方法：显示预渲染的像素化图像 ============
 function drawPixelation(pixelLevel, drawW, drawH) {
   image(pixelatedGraphics[pixelLevel], width/2, height/2, drawW, drawH);
 }
 
-// ============ 优化后的放大镜效果（使用预渲染图像）============
+//放大镜效果
 function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clearDist) {
-  // 显示当前等级的预渲染像素化背景
   image(pixelatedGraphics[pixelLevel], width/2, height/2, drawW, drawH);
   
-  // 只在鼠标周围区域绘制清晰像素
+  //只在鼠标周围绘制清晰像素
   let offsetX = width/2 - drawW/2;
   let offsetY = height/2 - drawH/2;
   let scaleX = drawW / bgImg.width;
@@ -896,7 +862,7 @@ function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clear
     }
   }
 
-  // 绘制放大镜边框
+  //放大镜边框
   push();
   noFill();
   stroke(255);
@@ -914,7 +880,7 @@ function blinkPixelation(imgA, drawW, drawH) {
     image(imgA, width/2, height/2, drawW, drawH);
   } else {
     alpha = map(phase, 60, 120, 255, 0);
-    drawPixelation(0, drawW, drawH);  // 使用最小的马赛克开始
+    drawPixelation(0, drawW, drawH);
   }
   push();
   fill(0, alpha);
@@ -1004,7 +970,13 @@ function windowResized() {
   btnY = height / 2 + 50;
 }
 
-// ============ 调试快捷键 ============
+
+
+
+
+
+
+//自己快速测试用的快捷键
 function keyPressed() {
   if (key === '0') { sceneStep = 0; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
   if (key === '1') { sceneStep = 1; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
