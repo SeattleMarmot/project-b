@@ -1607,7 +1607,7 @@ function keyTyped() {
   return false;
 }
 
-
+//给自己检查用的快捷键 以及输入法那一页有些东西写在这了
 function keyPressed() {
   if (key === '1') { sceneStep = 1; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
   if (key === '2') { sceneStep = 2; sceneTimer = 0; }
@@ -1620,7 +1620,7 @@ function keyPressed() {
   if (key === '9') { sceneStep = 16; sceneTimer = 0; }
   if (key === '0') { sceneStep = 17; sceneTimer = 0; }
   
-  //Scene 15删除键
+  //Scene15删除键
   if (sceneStep === 15 && keyCode === BACKSPACE) {
     if (userName.length > 0) {
       userName = userName.substring(0, userName.length - 1);
@@ -1628,7 +1628,7 @@ function keyPressed() {
     return false;
   }
   
-  //Scene 15回车键进入下一步
+  //Scene15回车键进入下一步
   if (sceneStep === 15 && keyCode === ENTER) {
     sceneStep = 16;
     sceneTimer = 0;
@@ -1645,5 +1645,5 @@ ray casting来判断鼠标点击点在多边形内部还是外部
 确定坐标数值方法：ai生成网站
 自己快速测试用的快捷键
 credit:Fisher(library staff)
-reference:
+reference:爆裂开来的效果；打字机；creategraphic
 */
