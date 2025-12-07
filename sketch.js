@@ -644,7 +644,7 @@ function draw() {
       }
       drawSubtitle("You remember… only when you look.");
     }
-    else if (sceneTimer < 360) {
+    else if (sceneTimer < 450) {
       if (sceneTimer === 180) {
         playAudioOnce(audios[19], 'memory_decays');
       }
