@@ -1402,7 +1402,7 @@ function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clear
   
   //只在鼠标周围绘制清晰像素
   let offsetX = width/2 - drawW/2;
-  let offsetY = width/2 - drawH/2;
+  let offsetY = height/2 - drawH/2;
   let scaleX = drawW / bgImg.width;
   let scaleY = drawH / bgImg.height;
   
