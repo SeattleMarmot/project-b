@@ -7,11 +7,13 @@ let hold;//摄像头变量
 
 let sceneStep = 0;
 let sceneTimer = 0;
+let typeInterval = 3;
 let subtitle = "";
 
+let drawW = 0;
+let drawH = 0;
 
 let showingWordRegionIdx = -1;
-let typeInterval = 3;
 let charIdx = 0;
 let wordDisplayTimer = 0;
 
@@ -37,16 +39,16 @@ let linesBeforeStart = [
 let pauseBeforeStart = [
   60,  //"Hey."
   60,  //"Call from 2025..." 
-  60,  //"OK." 
-  30,  //"This is a Digital Will." 
-  60,  //"It has been sealed..." 
-  30,  //"These memories..." 
-  60,  //"...For a thousand yrs." 
-  30,  //"But a Will awakens..." 
-  60,  //"And when awakened…" 
-  30,  //"If you choose..." 
-  60,  //"you take responsibility..." 
-  120  //"U ready?" (停顿后显示开场界面)
+  30,  //"OK." 
+  60,  //"This is a Digital Will." 
+  15,  //"These memories are what you're trying to keep" 
+  30,  //"...For a thousand yrs." 
+  60,  //"But a Will awakens..." 
+  105,  //""And when awakened…" 
+  60,  //"If you choose..." 
+  30,  //"you take responsibility..." 
+  90,  //"U ready?" (停顿后显示开场界面)" 
+  // 120  //"U ready?" (停顿后显示开场界面)
 ];
 
 
@@ -198,7 +200,8 @@ let confirmBtn = {
 //字幕配音（Scene 0-1-2）
 let audios = [];
 //场景音效
-//let audioHeartbeat, audioClock;
+//let audioHeartbeat;
+//let audioClock;
 let hasPlayedAudio = {};
 
 
@@ -399,14 +402,13 @@ class Fragment {
 function preload() {
   bgImg = loadImage('assets/img1.png');
   
-  // 加载配音
-  // for (let i = 0; i < 13; i = i + 1) {
-  //   let audioNum = i + 1;
-  //   audios[i] = loadSound('assets/Audio ' + audioNum + '.mp3');
-  // }
-
-
-  // audioHeartbeat = loadSound('assets/heartbeat.mp3');
+  //加载配音
+  for (let i = 0; i < 20; i = i + 1) {
+    let audioNum = i + 1;
+    audios[i] = loadSound('assets/Audio ' + audioNum + '.mp3');
+  }
+  
+  //audioHeartbeat = loadSound('assets/heartbeat.mp3');
   // audioClock = loadSound('assets/clock.mp3');
 }
 
@@ -459,8 +461,8 @@ function setup() {
   console.log("所有预渲染完成！");
   
   //设置心跳音效为循环模式 
-  //audioHeartbeat.loop();
-  //audioHeartbeat.pause();
+  // audioHeartbeat.loop();
+  // audioHeartbeat.pause();
   
   //设置时钟音效为循环模式
   //audioClock.loop();
@@ -497,12 +499,10 @@ function getCurrentPixelLevel(timer, totalFrames) {
 function draw() {
   background(0);
 
-
   let imgAspect = bgImg.width / bgImg.height;
   let availableW = width - 100;
   let availableH = height - 100;
   let canvasAspect = availableW / availableH;
-  let drawW, drawH;
   if (imgAspect > canvasAspect) {
     drawW = availableW;
     drawH = availableW / imgAspect;
@@ -523,7 +523,7 @@ function draw() {
   }
   //清晰图片和字幕
   else if (sceneStep === 2) {
-    //playAudioOnce(voiceAudios[0], 'take_a_close_look');
+    playAudioOnce(audios[13], 'take_a_close_look');
     image(bgImg, width/2, height/2, drawW, drawH);
     subtitle = "Take a close look.";
     drawSubtitle(subtitle);
@@ -542,7 +542,7 @@ function draw() {
     }
   }
   else if (sceneStep === 4) {
-    //playAudioOnce(voiceAudios[1], 'never_get_back');
+    playAudioOnce(audios[14], 'never_get_back');
     image(bgImg, width/2, height/2, drawW, drawH);
     subtitle = "Coz you can never get back.";
     drawSubtitle(subtitle);
@@ -561,10 +561,10 @@ function draw() {
     }
   }
   else if (sceneStep === 6) {
-    //blink1
-    //if (sceneTimer === 0) {
-    //  playAudioOnce(audioHeartbeat, 'blink1_heartbeat');
-    //}
+    blink1
+    // if (sceneTimer === 0) {
+    //   playAudioOnce(audioHeartbeat, 'blink1_heartbeat');
+    // }
     blinkTransition(bgImg, bgBlur1, drawW, drawH);
     sceneTimer++;
     if (sceneTimer > 120) {
@@ -573,9 +573,9 @@ function draw() {
   }
   else if (sceneStep === 7) {
     //blink2
-    //if (sceneTimer === 0) {
-    //  playAudioOnce(audioHeartbeat, 'blink2_heartbeat');
-    //}
+    // if (sceneTimer === 0) {
+    //   playAudioOnce(audioHeartbeat, 'blink2_heartbeat');
+    // }
     blinkTransition(bgBlur1, bgBlur2, drawW, drawH);
     sceneTimer++;
     if (sceneTimer > 120) {
@@ -584,79 +584,74 @@ function draw() {
   }
   else if (sceneStep === 8) {
     //blink3
-    //if (sceneTimer === 0) {
-    //  playAudioOnce(audioHeartbeat, 'blink3_heartbeat');
-    //}
+    // if (sceneTimer === 0) {
+    //   playAudioOnce(audioHeartbeat, 'blink3_heartbeat');
+    // }
     blinkPixelation(bgBlur2, drawW, drawH);
     sceneTimer++;
     if (sceneTimer > 120) {
-      //audioHeartbeat.pause();
+     // audioHeartbeat.pause();
       sceneStep = 9; sceneTimer = 0;
     }
   }
-    else if (sceneStep === 9) {
-    //放大镜阶段25秒
+    else if (sceneStep === 9) { 
     let totalFrames = 1500;
-    
-    //根据时间获取当前像素化等级
     let pixelLevel = getCurrentPixelLevel(sceneTimer, totalFrames);
-    let currentBlockSize = pixelSizes[pixelLevel];
-    
     let clearBlock = 4;
     let clearDist = 80;
     
     drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clearDist);
     
-    if (sceneTimer < 90) {
-      //if (sceneTimer === 0) {
-      //  playAudioOnce(voiceAudios[2], 'try');
-      //}
+    // 三段音频和字幕
+    if (sceneTimer < 240) {  // 0-240帧（4秒）
+      if (sceneTimer === 0) {
+        playAudioOnce(audios[15], 'memorize');
+      }
       drawSubtitle("Memorize every detail.");
-    } else if (sceneTimer < 330) {
-      //if (sceneTimer === 90) {
-      //  playAudioOnce(voiceAudios[3], 'move');
-      //}
+    } else if (sceneTimer < 420) {  // 240-420帧（3秒）
+      if (sceneTimer === 240) {
+        playAudioOnce(audios[16], 'move');
+      }
       drawSubtitle("Move and tap your mouse.");
-    } else if (sceneTimer < 510) {
-      //if (sceneTimer === 330) {
-      //  playAudioOnce(voiceAudios[4], 'memorize');
-      //}
+    } else if (sceneTimer < 540) {
+      if (sceneTimer === 420) {
+        playAudioOnce(audios[17], 'try');
+      }
       drawSubtitle("Try.");
     }
     
-    //倒计时显示
     let remainingFrames = totalFrames - sceneTimer;
     drawCountdown(ceil(remainingFrames / 60));
     
-    //点击区域显示单词
     if (showingWordRegionIdx >= 0) {
       drawHighlightedRegion(drawW, drawH);
     }
     
     sceneTimer++;
-    if (sceneTimer > totalFrames) {
-      sceneStep = 10; 
+    
+    if (sceneTimer >= totalFrames) {
+      sceneStep = 10;
       sceneTimer = 0;
     }
   }
-  //放大镜环节后的两句字幕
+  
+  // Scene 10: 放大镜结束后的两句字幕
   else if (sceneStep === 10) {
+    
     if (sceneTimer < 180) {
-      //if (sceneTimer === 1) {
-      //  playAudioOnce(voiceAudios[5], 'you_remember');
-      //}
-      subtitle = "You remember… only when you look.";
-      drawSubtitle(subtitle);
+      if (sceneTimer === 1) {
+        playAudioOnce(audios[18], 'you_remember');
+      }
+      drawSubtitle("You remember… only when you look.");
     }
     else if (sceneTimer < 360) {
-      //if (sceneTimer === 180) {
-      //  playAudioOnce(voiceAudios[6], 'memory_decays');
-      //}
-      subtitle = "Memory decays when ignored.";
-      drawSubtitle(subtitle);
+      if (sceneTimer === 180) {
+        playAudioOnce(audios[19], 'memory_decays');
+      }
+      drawSubtitle("Memory decays when ignored.");
     }
     else {
-      //进入闪烁和碎裂
+      // 进入Scene 11（闪烁）
       sceneStep = 11;
       sceneTimer = 0;
     }
@@ -1263,51 +1258,45 @@ function runTypewriter() {
   textSize(36);
   textStyle(NORMAL);
   fill(255);
-
-
+  
   let line = currentLines[lineIdx];
-  //当前字幕的停顿时间
   let currentPause = currentPauses[lineIdx];
-
-
-  //播放配音（一次，切换字幕时触发）
-  // if (charIdx === 0) {
-  //   if (sceneTimer === 0) {
-  //     let audioIndex = lineIdx;
-  //     // 如果是第二段字幕，音频索引需要加上第一段的数量
-  //     if (currentLines === linesAfterStart) {
-  //       audioIndex = audioIndex + linesBeforeStart.length;
-  //     }
-  //     playAudioOnce(audios[audioIndex], 'scene1_' + audioIndex);
-  //   }
-  // }
-
-
-  //打字机效果
+  
+  // 打字机效果
   if (charIdx < line.length) {
-    if (frameCount % 4 === 0) {//速度
+    // ✅ 简化：只在 charIdx 等于 0 时播放
+    if (charIdx === 0) {
+      let audioIndex = lineIdx;
+      if (currentLines === linesAfterStart) {
+        audioIndex = audioIndex + linesBeforeStart.length;
+      }
+      if (lineIdx > 0 || currentLines === linesAfterStart) {
+      playAudioOnce(audios[audioIndex], 'scene1_' + audioIndex);
+      }
+    }
+    
+    if (frameCount % 4 === 0) {
       charIdx++;
     }
   } else {
-    //一行打完后停currentPause帧 用来配合字幕播报的速度
+    // 停顿
     if (sceneTimer < currentPause) {
       sceneTimer++;
     } else {
+      // 切换到下一行
       lineIdx++;
       charIdx = 0;
       sceneTimer = 0;
       
-      //判断是否打完
       if (lineIdx >= currentLines.length) {
         if (currentLines === linesBeforeStart) {
-          // 第一段打完 开场
+          // 第一段字幕播完，显示按钮界面
           sceneStep = 0;
+          sceneTimer = 0;
           lineIdx = 0;
           charIdx = 0;
-          currentLines = linesAfterStart;  //切换第二段
-          currentPauses = pauseAfterStart;
         } else {
-          //第二段打完进入图片
+          // 第二段字幕播完，进入Scene 2
           sceneStep = 2;
           sceneTimer = 0;
           lineIdx = 0;
@@ -1316,57 +1305,10 @@ function runTypewriter() {
       }
     }
   }
+  
   let toDisplay = line.substring(0, charIdx);
   text(toDisplay, width / 2, height / 2);
 }
-
-
-//点击对应区域会跳出来碎片名称，同时区域高亮
-function drawHighlightedRegion(drawW, drawH) {
-  if (showingWordRegionIdx < 0) return;
-  
-  let region = regions[showingWordRegionIdx];
-  let offsetX = width/2 - drawW/2;
-  let offsetY = height/2 - drawH/2;
-  let scaleX = drawW / bgImg.width;
-  let scaleY = drawH / bgImg.height;
-  
-  if (charIdx < region.name.length) {
-    if (frameCount % typeInterval === 0) {
-      charIdx++;
-    }
-  } else {
-    wordDisplayTimer++;
-    if (wordDisplayTimer >= 120) {
-      showingWordRegionIdx = -1;
-      charIdx = 0;
-      wordDisplayTimer = 0;
-    }
-  }
-  
-  push();
-  fill(255, 80);
-  stroke(255, 255);
-  strokeWeight(3);
-  beginShape();
-  for (let pt of region.points) {
-    let sx = offsetX + pt.x * scaleX;
-    let sy = offsetY + pt.y * scaleY;
-    vertex(sx, sy);
-  }
-  endShape(CLOSE);
-  pop();
-  
-  let labelX = offsetX + region.labelX * scaleX;
-  let labelY = offsetY + region.labelY * scaleY;
-  let toDisplay = region.name.substring(0, charIdx);
-  textAlign(CENTER, CENTER);
-  textSize(36);
-  textStyle(NORMAL);
-  fill(255);
-  text(toDisplay, labelX, labelY);
-}
-
 
 //计算点在哪个碎片内
 //（ai教的ray casting 算法）
@@ -1516,25 +1458,30 @@ function playAudioOnce(audioObject, audioKey) {
 function mousePressed() {
   // Scene 0: 点击START按钮
   if (sceneStep === 0) {
-    if (mouseX > btnX) {
-      if (mouseX < btnX + btnW) {
-        if (mouseY > btnY) {
-          if (mouseY < btnY + btnH) {
-            sceneStep = 1;
-            lineIdx = 0;
-            charIdx = 0;
-            sceneTimer = 0;
-          }
-        }
+    if (mouseX > btnX && mouseX < btnX + btnW) {
+      if (mouseY > btnY && mouseY < btnY + btnH) {
+        sceneStep = 1;
+        lineIdx = 0;
+        charIdx = 0;
+        sceneTimer = 0;
+        // 切换到第二段字幕
+        currentLines = linesAfterStart;
+        currentPauses = pauseAfterStart;
       }
     }
   }
+
   // Scene 9: 点击区域显示单词
   else if (sceneStep === 9) {
-    let imgMouseX = map(mouseX, width/2 - (width - 100)/2, width/2 + (width - 100)/2, 0, bgImg.width);
-    let imgMouseY = map(mouseY, height/2 - (height - 100)/2, height/2 + (height - 100)/2, 0, bgImg.height);
+    let offsetX = width/2 - drawW/2;
+    let offsetY = height/2 - drawH/2;
+    let scaleX = drawW / bgImg.width;
+    let scaleY = drawH / bgImg.height;
     
-    for (let i = 0; i < regions.length; i = i + 1) {
+    let imgMouseX = map(mouseX, offsetX, offsetX + drawW, 0, bgImg.width);
+    let imgMouseY = map(mouseY, offsetY, offsetY + drawH, 0, bgImg.height);
+    
+    for (let i = 0; i < regions.length; i++) {
       if (pointInPolygon(imgMouseX, imgMouseY, regions[i].points)) {
         showingWordRegionIdx = i;
         charIdx = 0;
@@ -1544,6 +1491,7 @@ function mousePressed() {
       }
     }
   }
+  
   // Scene 13: 拖动碎片或点击Done
   else if (sceneStep === 13) {
     //是否点击Done按钮
@@ -1566,6 +1514,7 @@ function mousePressed() {
       }
     }
   }
+  
   // Scene 15: 点击Confirm按钮
   else if (sceneStep === 15) {
     if (mouseX > confirmBtn.x && mouseX < confirmBtn.x + confirmBtn.w &&
@@ -1576,7 +1525,54 @@ function mousePressed() {
   }
 }
 
-
+function drawHighlightedRegion(drawW, drawH) {
+  if (showingWordRegionIdx < 0) return;
+  
+  let region = regions[showingWordRegionIdx];
+  let offsetX = width/2 - drawW/2;
+  let offsetY = height/2 - drawH/2;
+  let scaleX = drawW / bgImg.width;
+  let scaleY = drawH / bgImg.height;
+  
+  // 打字机效果显示区域名称
+  if (charIdx < region.name.length) {
+    if (frameCount % typeInterval === 0) {
+      charIdx++;
+    }
+  } else {
+    wordDisplayTimer++;
+    if (wordDisplayTimer > 120) {
+      showingWordRegionIdx = -1;
+      charIdx = 0;
+      wordDisplayTimer = 0;
+    }
+  }
+  
+  // 绘制高亮的多边形
+  push();
+  fill(255, 80);
+  stroke(255, 255);
+  strokeWeight(3);
+  beginShape();
+  for (let pt of region.points) {
+    let sx = offsetX + pt.x * scaleX;
+    let sy = offsetY + pt.y * scaleY;
+    vertex(sx, sy);
+  }
+  endShape(CLOSE);
+  pop();
+  
+  // 绘制区域名称（打字机效果）
+  let labelX = offsetX + region.labelX * scaleX;
+  let labelY = offsetY + region.labelY * scaleY;
+  let toDisplay = region.name.substring(0, charIdx);
+  
+  textAlign(CENTER, CENTER);
+  textSize(36);
+  textStyle(NORMAL);
+  fill(255);
+  text(toDisplay, labelX, labelY);
+}
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
