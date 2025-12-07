@@ -2,17 +2,21 @@ let bgImg, bgBlur1, bgBlur2;
 let pixelatedGraphics = [];  //预渲染像素图像
 let pixelSizes = [18, 28, 34, 42];  //4种马赛克大小
 
+let capture;
+let hold;//摄像头变量
+
 let sceneStep = 0;
 let sceneTimer = 0;
 let subtitle = "";
+
 
 let showingWordRegionIdx = -1;
 let typeInterval = 3;
 let charIdx = 0;
 let wordDisplayTimer = 0;
 
-//============ Scene 012字幕变量 ============
 let lineIdx = 0;     //当前字幕
+
 
 //开场前字幕
 let linesBeforeStart = [
@@ -29,6 +33,7 @@ let linesBeforeStart = [
   "U ready?"
 ];
 
+
 let pauseBeforeStart = [
   60,  //"Hey."
   60,  //"Call from 2025..." 
@@ -44,24 +49,29 @@ let pauseBeforeStart = [
   120  //"U ready?" (停顿后显示开场界面)
 ];
 
+
 // 第二段字幕（点击START后）
 let linesAfterStart = [
   "A glance through time.",
   "This is what is left."
 ];
 
+
 let pauseAfterStart = [
   60,  //"A glance through time."
   90   //"This is what is left."
 ];
 
+
 let btnX, btnY, btnW, btnH;
 let currentLines = linesBeforeStart;  //当前使用的字幕数组
 let currentPauses = pauseBeforeStart;  //当前使用的停顿数组
 
-//============ Scene 3 碎片变量 ============
+
+//============ Scene3碎片变量 ============
 let fragments = [];
 let fragmentsInitialized = false;
+
 
 //碎片（13个多边形）
 let regions = [
@@ -158,13 +168,39 @@ let regions = [
   }
 ];
 
+
 let learnedRegions = {};
+
+
+//Scene13
+let isDragging = false;
+let draggedFragmentIndex = -1;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let doneBtn = {
+  x: 0,
+  y: 0,
+  w: 120,
+  h: 50
+};
+
+
+//Scene1516签名
+let userName = "";
+let confirmBtn = {
+  x: 0,
+  y: 0,
+  w: 150,
+  h: 50
+};
+
 
 //字幕配音（Scene 0-1-2）
 let audios = [];
 //场景音效
 //let audioHeartbeat, audioClock;
 let hasPlayedAudio = {};
+
 
 //============ Fragment ============
 class Fragment {
@@ -212,6 +248,9 @@ class Fragment {
     this.animationProgress = 0;
     
     this.alpha = 180;
+    
+    //预渲染这个碎片对应的原图内容
+    this.createFragmentImage();
   }
   
   //计算目标位置 碎片分布在屏幕边缘
@@ -232,6 +271,45 @@ class Fragment {
       this.targetX = width * 0.25 + (idx - 10) * (width * 0.25) + random(-30, 30);
       this.targetY = height - margin - random(0, 50);
     }
+  }
+  
+  //预渲染碎片对应的原图内容
+  createFragmentImage() {
+    //计算多边形边界
+    let minX = this.region.points[0].x;
+    let minY = this.region.points[0].y;
+    let maxX = this.region.points[0].x;
+    let maxY = this.region.points[0].y;
+    
+    for (let pt of this.region.points) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+    
+    let regionW = maxX - minX;
+    let regionH = maxY - minY;
+    
+    //创建graphics来绘制遮罩
+    let maskGraphics = createGraphics(regionW, regionH);
+    maskGraphics.fill(255);
+    maskGraphics.noStroke();
+    maskGraphics.beginShape();
+    for (let pt of this.region.points) {
+      maskGraphics.vertex(pt.x - minX, pt.y - minY);
+    }
+    maskGraphics.endShape(CLOSE);
+    
+    //裁剪原图对应区域
+    this.fragmentImg = bgImg.get(minX, minY, regionW, regionH);
+    this.fragmentImg.mask(maskGraphics);
+    
+    //保存边界信息
+    this.imgMinX = minX;
+    this.imgMinY = minY;
+    this.imgW = regionW;
+    this.imgH = regionH;
   }
   
   update(elapsedFrames) {
@@ -256,32 +334,67 @@ class Fragment {
     this.trembleY = (noiseValY - 0.5) * 2 * this.trembleIntensity;
   }
 
+
   
-  draw() {
+  draw(showOriginalImage = false) {
     push();
     translate(this.screenX + this.trembleX, this.screenY + this.trembleY);
     scale(this.fragScale);
-    fill(255, this.alpha);
-    stroke(255);
-    strokeWeight(3 / this.fragScale);
     
-    beginShape();
-    for (let pt of this.region.points) {
-      let relX = (pt.x - this.centerX) * this.scaleX;
-      let relY = (pt.y - this.centerY) * this.scaleY;
-      vertex(relX, relY);
+    if (showOriginalImage) {
+      //显示预渲染的碎片图像
+      push();
+      let displayW = this.imgW * this.scaleX;
+      let displayH = this.imgH * this.scaleY;
+      
+      //计算偏移：让图像中心对齐碎片中心
+      let imgCenterX = this.imgMinX + this.imgW / 2;
+      let imgCenterY = this.imgMinY + this.imgH / 2;
+      let offsetX = (imgCenterX - this.centerX) * this.scaleX;
+      let offsetY = (imgCenterY - this.centerY) * this.scaleY;
+      
+      imageMode(CENTER);
+      image(this.fragmentImg, offsetX, offsetY, displayW, displayH);
+      imageMode(CORNER);
+      pop();
+      
+      //绘制边框
+      noFill();
+      stroke(255);
+      strokeWeight(3 / this.fragScale);
+      beginShape();
+      for (let pt of this.region.points) {
+        let relX = (pt.x - this.centerX) * this.scaleX;
+        let relY = (pt.y - this.centerY) * this.scaleY;
+        vertex(relX, relY);
+      }
+      endShape(CLOSE);
+    } else {
+      //原来的白色多边形+文字
+      fill(255, this.alpha);
+      stroke(255);
+      strokeWeight(3 / this.fragScale);
+      
+      beginShape();
+      for (let pt of this.region.points) {
+        let relX = (pt.x - this.centerX) * this.scaleX;
+        let relY = (pt.y - this.centerY) * this.scaleY;
+        vertex(relX, relY);
+      }
+      endShape(CLOSE);
+      
+      fill(255);
+      noStroke();
+      textAlign(CENTER, CENTER);
+      textSize(24 / this.fragScale);
+      textStyle(NORMAL);
+      text(this.name, 0, 0);
     }
-    endShape(CLOSE);
     
-    fill(255);
-    noStroke();
-    textAlign(CENTER, CENTER);
-    textSize(24 / this.fragScale);
-    textStyle(NORMAL);
-    text(this.name, 0, 0);
     pop();
   }
 }
+
 
 function preload() {
   bgImg = loadImage('assets/img1.png');
@@ -292,9 +405,11 @@ function preload() {
   //   audios[i] = loadSound('assets/Audio ' + audioNum + '.mp3');
   // }
 
+
   // audioHeartbeat = loadSound('assets/heartbeat.mp3');
   // audioClock = loadSound('assets/clock.mp3');
 }
+
 
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
@@ -302,6 +417,12 @@ function setup() {
   canvas.parent("p5-canvas-container");
   
   pixelDensity(1);
+  
+  //camera（hide）
+  capture = createCapture(VIDEO);
+  capture.hide();
+  hold = createImage(640, 480);
+
   
   sceneStep = 1;
   currentLines = linesBeforeStart;
@@ -346,6 +467,7 @@ function setup() {
   //audioClock.pause();
 }
 
+
 // ============ 👍：预渲染像素化图像 ============
 function preRenderPixelatedImage(pg, blockSize) {
   bgImg.loadPixels();
@@ -363,6 +485,7 @@ function preRenderPixelatedImage(pg, blockSize) {
   }
 }
 
+
 //获取当前像素化是四档的哪一档
 function getCurrentPixelLevel(timer, totalFrames) {
   let stage = floor(timer / (totalFrames / 4));
@@ -370,8 +493,10 @@ function getCurrentPixelLevel(timer, totalFrames) {
   return stage;
 }
 
+
 function draw() {
   background(0);
+
 
   let imgAspect = bgImg.width / bgImg.height;
   let availableW = width - 100;
@@ -386,6 +511,7 @@ function draw() {
     drawW = availableH * imgAspect;
   }
   imageMode(CENTER);
+
 
   //标题按钮
   if (sceneStep === 0) {
@@ -468,9 +594,9 @@ function draw() {
       sceneStep = 9; sceneTimer = 0;
     }
   }
-  else if (sceneStep === 9) {
-    //放大镜阶段20秒
-    let totalFrames = 1200;
+    else if (sceneStep === 9) {
+    //放大镜阶段25秒
+    let totalFrames = 1500;
     
     //根据时间获取当前像素化等级
     let pixelLevel = getCurrentPixelLevel(sceneTimer, totalFrames);
@@ -506,7 +632,12 @@ function draw() {
     if (showingWordRegionIdx >= 0) {
       drawHighlightedRegion(drawW, drawH);
     }
+    
     sceneTimer++;
+    if (sceneTimer > totalFrames) {
+      sceneStep = 10; 
+      sceneTimer = 0;
+    }
   }
   //放大镜环节后的两句字幕
   else if (sceneStep === 10) {
@@ -571,6 +702,7 @@ function draw() {
       
       fill(grayValue, polygonAlpha * 0.6); //多边形填充的透明度
       stroke(grayValue, polygonAlpha);//多边形的边框
+
 
       strokeWeight(3);
       beginShape();
@@ -638,17 +770,450 @@ function draw() {
       rect(0, 0, width, height);
       pop();
     }
-    //字幕
+        //字幕
     if (sceneTimer >= 30) {
       if (sceneTimer < 210) {
         drawSubtitle("Time separates meaning into pieces.");
       } else if (sceneTimer < 390) {
         drawSubtitle("It will not wait.");
+      } else if (sceneTimer < 570) {
+        drawSubtitle("Try to fix your memory.");
+      } else if (sceneTimer < 750) {
+        drawSubtitle("Even if it cannot be perfect.");
+      } else {
+        //进入拼图阶段
+        sceneStep = 13;
+        sceneTimer = 0;
+      }
+    }
+    sceneTimer++;
+  }
+    //尝试复原memory
+  else if (sceneStep === 13) {
+    //继续更新碎片（保持抖动）
+    let elapsedFrames = sceneTimer;
+    
+    for (let i = 0; i < fragments.length; i++) {
+      let frag = fragments[i];
+      
+      //更新抖动效果
+      frag.update(elapsedFrames);
+      
+      //如果正在拖动这个碎片，覆盖位置
+      if (isDragging && draggedFragmentIndex === i) {
+        frag.screenX = mouseX + dragOffsetX;
+        frag.screenY = mouseY + dragOffsetY;
+      }
+      
+      frag.draw();
+    }
+    
+    //Done按钮
+    doneBtn.x = width - doneBtn.w - 30;
+    doneBtn.y = 30;
+    
+    let isBtnHover = mouseX > doneBtn.x && mouseX < doneBtn.x + doneBtn.w &&
+                     mouseY > doneBtn.y && mouseY < doneBtn.y + doneBtn.h;
+    
+    push();
+    if (isBtnHover) {
+      fill(255);
+      stroke(255);
+    } else {
+      noFill();
+      stroke(255);
+    }
+    strokeWeight(3);
+    rect(doneBtn.x, doneBtn.y, doneBtn.w, doneBtn.h, 8);
+    
+    fill(isBtnHover ? 0 : 255);
+    textAlign(CENTER, CENTER);
+    textSize(24);
+    textStyle(NORMAL);
+    text("DONE", doneBtn.x + doneBtn.w / 2, doneBtn.y + doneBtn.h / 2);
+    pop();
+    
+    sceneTimer++;
+  }
+  //点击Done后碎片显示原图内容并闪烁
+  else if (sceneStep === 14) {
+    let t = sceneTimer;
+    
+    //碎片依旧要抖动
+    for (let frag of fragments) {
+      frag.update(t);
+    }
+    
+    //前180碎片显示原图内容并闪烁
+    if (t < 180) {
+      for (let frag of fragments) {
+        frag.draw(true);  //传入true显示原图
+      }
+      //闪烁
+      let flashAlpha = (sin(t * 0.3) * 0.5 + 0.5) * 150;
+      push();
+      fill(255, flashAlpha);
+      noStroke();
+      rect(0, 0, width, height);
+      pop();
+    }
+    //全白（180-210帧，0.5秒）
+    else if (t < 210) {
+      push();
+      fill(255);
+      noStroke();
+      rect(0, 0, width, height);
+      pop();
+    }
+    //全黑（210帧之后）
+    else if (t < 240) {
+      background(0);
+    }
+    //进入签名字幕
+    else {
+      sceneStep = 15;
+      sceneTimer = 0;
+    }
+    sceneTimer++;
+  }
+    //输入名字
+  else if (sceneStep === 15) {
+    //标题
+    textAlign(CENTER, CENTER);
+    textSize(48);
+    textStyle(NORMAL);
+    fill(255);
+    text("Sign your digital will", width / 2, height / 2 - 120);
+    
+    //提示文字
+    textSize(32);
+    text("Type your name here:", width / 2, height / 2 - 40);
+    
+    //输入框
+    push();
+    noFill();
+    stroke(255);
+    strokeWeight(2);
+    let boxW = 400;
+    let boxH = 50;
+    let boxX = width / 2 - boxW / 2;
+    let boxY = height / 2 + 10;
+    rect(boxX, boxY, boxW, boxH);
+    pop();
+    
+    //显示用户输入的名字
+    push();
+    fill(255);
+    noStroke();
+    textAlign(LEFT, CENTER);
+    textSize(32);
+    text(userName, boxX + 10, boxY + boxH / 2);
+    pop();
+    
+    //闪烁光标
+    if (frameCount % 30 < 15) {
+      push();
+      fill(255);
+      noStroke();
+      let cursorX = boxX + 10 + textWidth(userName);
+      rect(cursorX, boxY + 10, 2, 30);
+      pop();
+    }
+    
+    //Confirm按钮
+    confirmBtn.w = 150;
+    confirmBtn.h = 50;
+    confirmBtn.x = width / 2 - confirmBtn.w / 2;
+    confirmBtn.y = boxY + 80;
+    
+    let isBtnHover = mouseX > confirmBtn.x && mouseX < confirmBtn.x + confirmBtn.w &&
+                     mouseY > confirmBtn.y && mouseY < confirmBtn.y + confirmBtn.h;
+    
+    push();
+    if (isBtnHover) {
+      fill(255);
+      stroke(255);
+    } else {
+      noFill();
+      stroke(255);
+    }
+    strokeWeight(3);
+    rect(confirmBtn.x, confirmBtn.y, confirmBtn.w, confirmBtn.h, 8);
+    
+    fill(isBtnHover ? 0 : 255);
+    textAlign(CENTER, CENTER);
+    textSize(24);
+    textStyle(NORMAL);
+    text("CONFIRM", confirmBtn.x + confirmBtn.w / 2, confirmBtn.y + confirmBtn.h / 2);
+    pop();
+  }
+    //Scene 16: 字幕（打字机）
+  else if (sceneStep === 16) {
+    if (sceneTimer < 210) {
+      //第一句字幕
+      let line1 = "When you look at memories,";
+      let line2 = "memories look at you.";
+      
+      textAlign(CENTER, CENTER);
+      textSize(42);
+      textStyle(NORMAL);
+      fill(255);
+      
+      //第一行打字机
+      if (sceneTimer < 70) {
+        let charCount1 = floor(sceneTimer / 3);
+        text(line1.substring(0, charCount1), width / 2, height / 2 - 30);
+      } else {
+        text(line1, width / 2, height / 2 - 30);
+        //第二行打字机
+        let charCount2 = floor((sceneTimer - 70) / 3);
+        text(line2.substring(0, charCount2), width / 2, height / 2 + 30);
+      }
+    }
+    else if (sceneTimer < 420) {
+      //第二句字幕
+      let line1 = "When you awaken a memory,";
+      let line2 = "you become a part of it.";
+      
+      textAlign(CENTER, CENTER);
+      textSize(42);
+      textStyle(NORMAL);
+      fill(255);
+      
+      let offset = sceneTimer - 210;
+      
+      //第一行打字机
+      if (offset < 70) {
+        let charCount1 = floor(offset / 3);
+        text(line1.substring(0, charCount1), width / 2, height / 2 - 30);
+      } else {
+        text(line1, width / 2, height / 2 - 30);
+        //第二行打字机
+        let charCount2 = floor((offset - 70) / 3);
+        text(line2.substring(0, charCount2), width / 2, height / 2 + 30);
+      }
+    }
+    else {
+      sceneStep = 17;
+      sceneTimer = 0;
+    }
+    sceneTimer++;
+  }
+      //Scene 17: 拍照
+    //Scene 17: 拍照
+  else if (sceneStep === 17) {
+    let camW = min(width * 0.8, 640);
+    let camH = camW * (capture.height / capture.width);
+    
+    //前90帧显示实时摄像头（1.5秒）
+    if (sceneTimer < 90) {
+      push();
+      imageMode(CENTER);
+      image(capture, width / 2, height / 2, camW, camH);
+      pop();
+    }
+    //第90帧拍照
+    else if (sceneTimer === 90) {
+      hold = capture.get(0, 0, capture.width, capture.height);
+    }
+    //拍照后显示定格画面（1秒）
+    else if (sceneTimer > 90 && sceneTimer <= 150) {
+      //显示定格照片
+      push();
+      imageMode(CENTER);
+      image(hold, width / 2, height / 2, camW, camH);
+      pop();
+      
+      //显示用户名字
+      textAlign(CENTER, BOTTOM);
+      textSize(48);
+      textStyle(BOLD);
+      fill(255);
+      text(userName, width / 2, height * 0.9);
+    }
+    //150帧后开始像素块化（1.5秒）
+    else if (sceneTimer > 150 && sceneTimer <= 240) {
+      //像素块化（逐渐变大）
+      let pixelProgress = sceneTimer - 150;
+      let blockSize = floor(map(pixelProgress, 0, 90, 1, 20));
+      
+      push();
+      imageMode(CENTER);
+      hold.loadPixels();
+      
+      //创建临时graphics来绘制像素化
+      let pixelatedImg = createGraphics(hold.width, hold.height);
+      pixelatedImg.noStroke();
+      
+      for (let y = 0; y < hold.height; y += blockSize) {
+        for (let x = 0; x < hold.width; x += blockSize) {
+          let idx = 4 * (y * hold.width + x);
+          let r = hold.pixels[idx];
+          let g = hold.pixels[idx + 1];
+          let b = hold.pixels[idx + 2];
+          pixelatedImg.fill(r, g, b);
+          pixelatedImg.rect(x, y, blockSize, blockSize);
+        }
+      }
+      
+      image(pixelatedImg, width / 2, height / 2, camW, camH);
+      pop();
+      
+      //显示用户名字
+      textAlign(CENTER, BOTTOM);
+      textSize(48);
+      textStyle(BOLD);
+      fill(255);
+      text(userName, width / 2, height * 0.9);
+    }
+    //240帧后爆裂效果
+    else if (sceneTimer > 240) {
+      let explodeProgress = sceneTimer - 240;
+      
+      hold.loadPixels();
+      let s = 20; //像素块大小
+      
+      let imgLeft = width / 2 - camW / 2;
+      let imgTop = height / 2 - camH / 2;
+      
+      //绘制爆裂的像素块
+      for (let x = 0; x < hold.width; x += s) {
+        for (let y = 0; y < hold.height; y += s) {
+          let idx = (x + y * hold.width) * 4;
+          let r = hold.pixels[idx + 0];
+          let g = hold.pixels[idx + 1];
+          let b = hold.pixels[idx + 2];
+          
+          //计算亮度
+          let brightness = (r + g + b) / 3;
+          
+          //基于亮度计算位移和缩放
+          let maxOffset = map(explodeProgress, 0, 90, 0, 400);
+          let offset = map(brightness, 0, 255, maxOffset, 0);
+          
+          //计算偏移方向（从中心向外）
+          let centerX = hold.width / 2;
+          let centerY = hold.height / 2;
+          let angle = atan2(y - centerY, x - centerX);
+          let offsetX = cos(angle) * offset;
+          let offsetY = sin(angle) * offset;
+          
+          //计算缩放（亮的块更小，模拟远离感）
+          let scale = map(brightness, 0, 255, 1.2, 0.5);
+          
+          push();
+          let screenX = imgLeft + (x / hold.width) * camW + offsetX;
+          let screenY = imgTop + (y / hold.height) * camH + offsetY;
+          
+          translate(screenX, screenY);
+          fill(r, g, b);
+          noStroke();
+          let blockW = (s / hold.width) * camW * scale;
+          let blockH = (s / hold.height) * camH * scale;
+          rect(0, 0, blockW, blockH);
+          pop();
+        }
+      }
+      
+      //爆裂开始后3秒（180帧）显示字幕（打字机效果）
+      if (explodeProgress > 180 && explodeProgress <= 520) {
+        let subtitleProgress = explodeProgress - 180;
+        let line1 = "Memory of self is the first to fade.";
+        let line2 = "Dear Future Me, this is what I tried to keep.";
+        
+        push();
+        textAlign(CENTER, CENTER);
+        textSize(42);
+        textStyle(NORMAL);
+        fill(255);
+        
+        //第一行打字机（100帧）
+        if (subtitleProgress < 100) {
+          let charCount1 = floor(subtitleProgress / 3);
+          text(line1.substring(0, charCount1), width / 2, height / 2 - 30);
+        } 
+        //第二行打字机（90帧）
+        else if (subtitleProgress < 190) {
+          text(line1, width / 2, height / 2 - 30);
+          let charCount2 = floor((subtitleProgress - 100) / 3);
+          text(line2.substring(0, charCount2), width / 2, height / 2 + 30);
+        }
+        //打完后停顿2.5秒（150帧），总共190+150=340帧
+        else {
+          text(line1, width / 2, height / 2 - 30);
+          text(line2, width / 2, height / 2 + 30);
+        }
+        pop();
+      }
+      //字幕像素化（340+180=520-700帧，3秒）
+      else if (explodeProgress > 520 && explodeProgress <= 700) {
+        let pixelTextProgress = explodeProgress - 520;
+        let line1 = "Memory of self is the first to fade.";
+        let line2 = "Dear Future Me, this is what I tried to keep.";
+        
+        //计算像素化程度（3秒=180帧）
+        let pixelSize = map(pixelTextProgress, 0, 180, 1, 30);
+        pixelSize = constrain(pixelSize, 1, 30);
+        
+        push();
+        textAlign(CENTER, CENTER);
+        textSize(42);
+        textStyle(NORMAL);
+        
+        //创建临时graphics来绘制文字
+        let textGraphics = createGraphics(width, height);
+        textGraphics.textAlign(CENTER, CENTER);
+        textGraphics.textSize(42);
+        textGraphics.textStyle(NORMAL);
+        textGraphics.fill(255);
+        textGraphics.text(line1, width / 2, height / 2 - 30);
+        textGraphics.text(line2, width / 2, height / 2 + 30);
+        
+        //像素化文字
+        textGraphics.loadPixels();
+        noStroke();
+        
+        for (let y = height / 2 - 100; y < height / 2 + 100; y += pixelSize) {
+          for (let x = width / 2 - 400; x < width / 2 + 400; x += pixelSize) {
+            let idx = 4 * (floor(x) + floor(y) * width);
+            let r = textGraphics.pixels[idx];
+            let g = textGraphics.pixels[idx + 1];
+            let b = textGraphics.pixels[idx + 2];
+            let a = textGraphics.pixels[idx + 3];
+            
+            if (a > 0) {
+              fill(r, g, b, a);
+              rect(x, y, pixelSize, pixelSize);
+            }
+          }
+        }
+        pop();
+      }
+      //700帧后全黑
+      else if (explodeProgress > 700 && explodeProgress <= 730) {
+        background(0);
+      }
+      //730帧后打字机显示"Digital Will."
+      else if (explodeProgress > 730) {
+        background(0);
+        let finalTextProgress = explodeProgress - 730;
+        let finalText = "Digital Will.";
+        
+        push();
+        textAlign(CENTER, CENTER);
+        textSize(72);
+        textStyle(NORMAL);
+        fill(255);
+        
+        let charCount = floor(finalTextProgress / 4);
+        text(finalText.substring(0, charCount), width / 2, height / 2);
+        pop();
       }
     }
     sceneTimer++;
   }
 }
+
 
 //标题+按钮
 function drawStartScreen() {
@@ -657,6 +1222,7 @@ function drawStartScreen() {
   textStyle(NORMAL);
   fill(255);
   text("DIGITAL WILL", width / 2, height / 2 - 80);
+
 
   let isHover = false;
   if (mouseX > btnX) {
@@ -668,6 +1234,7 @@ function drawStartScreen() {
       }
     }
   }
+
 
   if (isHover) {
     fill(255);
@@ -689,6 +1256,7 @@ function drawStartScreen() {
   text("START", width / 2, btnY + btnH / 2);
 }
 
+
 //打字机字幕
 function runTypewriter() {
   textAlign(CENTER, CENTER);
@@ -696,9 +1264,11 @@ function runTypewriter() {
   textStyle(NORMAL);
   fill(255);
 
+
   let line = currentLines[lineIdx];
   //当前字幕的停顿时间
   let currentPause = currentPauses[lineIdx];
+
 
   //播放配音（一次，切换字幕时触发）
   // if (charIdx === 0) {
@@ -711,6 +1281,7 @@ function runTypewriter() {
   //     playAudioOnce(audios[audioIndex], 'scene1_' + audioIndex);
   //   }
   // }
+
 
   //打字机效果
   if (charIdx < line.length) {
@@ -748,6 +1319,7 @@ function runTypewriter() {
   let toDisplay = line.substring(0, charIdx);
   text(toDisplay, width / 2, height / 2);
 }
+
 
 //点击对应区域会跳出来碎片名称，同时区域高亮
 function drawHighlightedRegion(drawW, drawH) {
@@ -795,6 +1367,7 @@ function drawHighlightedRegion(drawW, drawH) {
   text(toDisplay, labelX, labelY);
 }
 
+
 //计算点在哪个碎片内
 //（ai教的ray casting 算法）
 //即从点出发画一条水平射线，这条射线穿过多边形边界奇数次则点在多边形内部，偶数次外部
@@ -816,10 +1389,12 @@ function pointInPolygon(px, py, polygon) {
   return inside;
 }
 
+
 // ============ ai教的减小计算量的方法：显示预渲染的像素化图像 ============
 function drawPixelation(pixelLevel, drawW, drawH) {
   image(pixelatedGraphics[pixelLevel], width/2, height/2, drawW, drawH);
 }
+
 
 //放大镜效果
 function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clearDist) {
@@ -827,7 +1402,7 @@ function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clear
   
   //只在鼠标周围绘制清晰像素
   let offsetX = width/2 - drawW/2;
-  let offsetY = height/2 - drawH/2;
+  let offsetY = width/2 - drawH/2;
   let scaleX = drawW / bgImg.width;
   let scaleY = drawH / bgImg.height;
   
@@ -862,6 +1437,7 @@ function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clear
     }
   }
 
+
   //放大镜边框
   push();
   noFill();
@@ -871,6 +1447,7 @@ function drawPixelationWithMagnifier(pixelLevel, clearBlock, drawW, drawH, clear
   rect(mouseX, mouseY, clearDist * 2, clearDist * 2);
   pop();
 }
+
 
 function blinkPixelation(imgA, drawW, drawH) {
   let phase = sceneTimer;
@@ -888,6 +1465,7 @@ function blinkPixelation(imgA, drawW, drawH) {
   rect(0, 0, width, height);
   pop();
 }
+
 
 function blinkTransition(imgA, imgB, drawW, drawH) {
   let phase = sceneTimer;
@@ -907,6 +1485,7 @@ function blinkTransition(imgA, imgB, drawW, drawH) {
   pop();
 }
 
+
 function drawCountdown(sec) {
   textAlign(LEFT, TOP);
   textSize(64);
@@ -914,6 +1493,7 @@ function drawCountdown(sec) {
   fill(255, 0, 0);
   text(sec + "s", 100, 75);
 }
+
 
 function drawSubtitle(txt) {
   textAlign(CENTER, CENTER);
@@ -923,6 +1503,7 @@ function drawSubtitle(txt) {
   text(txt, width/2, height * 0.8);
 }
 
+
 //播放音频（只播放一次）
 function playAudioOnce(audioObject, audioKey) {
   if (hasPlayedAudio[audioKey] === undefined) {
@@ -930,6 +1511,7 @@ function playAudioOnce(audioObject, audioKey) {
     hasPlayedAudio[audioKey] = true;
   }
 }
+
 
 function mousePressed() {
   // Scene 0: 点击START按钮
@@ -962,7 +1544,39 @@ function mousePressed() {
       }
     }
   }
+  // Scene 13: 拖动碎片或点击Done
+  else if (sceneStep === 13) {
+    //是否点击Done按钮
+    if (mouseX > doneBtn.x && mouseX < doneBtn.x + doneBtn.w &&
+        mouseY > doneBtn.y && mouseY < doneBtn.y + doneBtn.h) {
+      sceneStep = 14;
+      sceneTimer = 0;
+    } else {
+      //是否点击了某个碎片
+      for (let i = fragments.length - 1; i >= 0; i--) {
+        let frag = fragments[i];
+        let dist = distance(mouseX, mouseY, frag.screenX, frag.screenY);
+        if (dist < 100) {
+          isDragging = true;
+          draggedFragmentIndex = i;
+          dragOffsetX = frag.screenX - mouseX;
+          dragOffsetY = frag.screenY - mouseY;
+          break;
+        }
+      }
+    }
+  }
+  // Scene 15: 点击Confirm按钮
+  else if (sceneStep === 15) {
+    if (mouseX > confirmBtn.x && mouseX < confirmBtn.x + confirmBtn.w &&
+        mouseY > confirmBtn.y && mouseY < confirmBtn.y + confirmBtn.h) {
+      sceneStep = 16;
+      sceneTimer = 0;
+    }
+  }
 }
+
+
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
@@ -971,20 +1585,59 @@ function windowResized() {
 }
 
 
+function mouseReleased() {
+  isDragging = false;
+  draggedFragmentIndex = -1;
+}
 
 
+//计算两点距离
+function distance(x1, y1, x2, y2) {
+  return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+}
 
 
+function keyTyped() {
+  if (sceneStep === 15) {
+    if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || 
+        (key >= '0' && key <= '9') || key === ' ') {
+      userName += key;
+    }
+  }
+  return false;
+}
 
-//自己快速测试用的快捷键
+
 function keyPressed() {
-  if (key === '0') { sceneStep = 0; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
   if (key === '1') { sceneStep = 1; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
   if (key === '2') { sceneStep = 2; sceneTimer = 0; }
-  if (key === '9') { sceneStep = 9; sceneTimer = 0; }
-  if (key === 'a') { sceneStep = 11; sceneTimer = 0; }
-  if (key === 'b') { sceneStep = 12; sceneTimer = 0; fragmentsInitialized = false; }
+  if (key === '3') { sceneStep = 9; sceneTimer = 0; }
+  if (key === '4') { sceneStep = 11; sceneTimer = 0; }
+  if (key === '5') { sceneStep = 12; sceneTimer = 0; fragmentsInitialized = false; }
+  if (key === '6') { sceneStep = 13; sceneTimer = 0; }
+  if (key === '7') { sceneStep = 14; sceneTimer = 0; }
+  if (key === '8') { sceneStep = 15; sceneTimer = 0; userName = ""; }
+  if (key === '9') { sceneStep = 16; sceneTimer = 0; }
+  if (key === '0') { sceneStep = 17; sceneTimer = 0; }
+  
+  //Scene 15删除键
+  if (sceneStep === 15 && keyCode === BACKSPACE) {
+    if (userName.length > 0) {
+      userName = userName.substring(0, userName.length - 1);
+    }
+    return false;
+  }
+  
+  //Scene 15回车键进入下一步
+  if (sceneStep === 15 && keyCode === ENTER) {
+    sceneStep = 16;
+    sceneTimer = 0;
+    return false;
+  }
 }
+
+
+
 
 /*给blog post准备的part
 ai教的减小计算量的方法：显示预渲染的像素化图像;动态马赛克生成改为固定四幅
