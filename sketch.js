@@ -409,7 +409,7 @@ function preload() {
   }
   
   //audioHeartbeat = loadSound('assets/heartbeat.mp3');
-  // audioClock = loadSound('assets/clock.mp3');
+  //audioClock = loadSound('assets/clock.mp3');
 }
 
 
@@ -561,7 +561,7 @@ function draw() {
     }
   }
   else if (sceneStep === 6) {
-    blink1
+    //blink1
     // if (sceneTimer === 0) {
     //   playAudioOnce(audioHeartbeat, 'blink1_heartbeat');
     // }
