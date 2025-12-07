@@ -985,3 +985,12 @@ function keyPressed() {
   if (key === 'a') { sceneStep = 11; sceneTimer = 0; }
   if (key === 'b') { sceneStep = 12; sceneTimer = 0; fragmentsInitialized = false; }
 }
+
+/*给blog post准备的part
+ai教的减小计算量的方法：显示预渲染的像素化图像;动态马赛克生成改为固定四幅
+ray casting来判断鼠标点击点在多边形内部还是外部
+确定坐标数值方法：ai生成网站
+自己快速测试用的快捷键
+credit:Fisher(library staff)
+reference:
+*/
