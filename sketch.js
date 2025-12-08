@@ -1280,7 +1280,7 @@ function runTypewriter() {
 }
 
 //计算点在哪个碎片内
-//（ai教的ray casting 算法）
+//（ray casting 算法）
 //即从点出发画一条水平射线，这条射线穿过多边形边界奇数次则点在多边形内部，偶数次外部
 function pointInPolygon(px, py, polygon) {
   let inside = false;
@@ -1571,18 +1571,18 @@ function keyTyped() {
   return false;
 }
 
-//给自己检查用的快捷键 以及输入法那一页有些东西写在这了【最终version快捷键已删除】
+//给自己检查用的快捷键 以及输入法那一页有些东西写在这了
 function keyPressed() {
-  // if (key === '1') { sceneStep = 1; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
-  // if (key === '2') { sceneStep = 2; sceneTimer = 0; }
-  // if (key === '3') { sceneStep = 9; sceneTimer = 0; }
-  // if (key === '4') { sceneStep = 11; sceneTimer = 0; }
-  // if (key === '5') { sceneStep = 12; sceneTimer = 0; fragmentsInitialized = false; }
-  // if (key === '6') { sceneStep = 13; sceneTimer = 0; }
-  // if (key === '7') { sceneStep = 14; sceneTimer = 0; }
-  // if (key === '8') { sceneStep = 15; sceneTimer = 0; userName = ""; }
-  // if (key === '9') { sceneStep = 16; sceneTimer = 0; }
-  // if (key === '0') { sceneStep = 17; sceneTimer = 0; }
+  if (key === '1') { sceneStep = 1; sceneTimer = 0; lineIdx = 0; charIdx = 0; }
+  if (key === '2') { sceneStep = 2; sceneTimer = 0; }
+  if (key === '3') { sceneStep = 9; sceneTimer = 0; }
+  if (key === '4') { sceneStep = 11; sceneTimer = 0; }
+  if (key === '5') { sceneStep = 12; sceneTimer = 0; fragmentsInitialized = false; }
+  if (key === '6') { sceneStep = 13; sceneTimer = 0; }
+  if (key === '7') { sceneStep = 14; sceneTimer = 0; }
+  if (key === '8') { sceneStep = 15; sceneTimer = 0; userName = ""; }
+  if (key === '9') { sceneStep = 16; sceneTimer = 0; }
+  if (key === '0') { sceneStep = 17; sceneTimer = 0; }
   
   //Scene15删除键
   if (sceneStep === 15 && keyCode === BACKSPACE) {
