@@ -1439,7 +1439,7 @@ function mousePressed() {
     }
   }
 
-  // Scene 9: 点击区域显示单词
+  //Scene9: 点击区域显示单词
   else if (sceneStep === 9) {
     let offsetX = width/2 - drawW/2;
     let offsetY = height/2 - drawH/2;
@@ -1460,7 +1460,7 @@ function mousePressed() {
     }
   }
   
-  // Scene 13: 拖动碎片或点击Done
+  //Scene13: 拖动碎片或点击Done
   else if (sceneStep === 13) {
     //是否点击Done按钮
     if (mouseX > doneBtn.x && mouseX < doneBtn.x + doneBtn.w &&
@@ -1483,7 +1483,7 @@ function mousePressed() {
     }
   }
   
-  // Scene 15: 点击Confirm按钮
+  //Scene15: 点击Confirm按钮
   else if (sceneStep === 15) {
     if (mouseX > confirmBtn.x && mouseX < confirmBtn.x + confirmBtn.w &&
         mouseY > confirmBtn.y && mouseY < confirmBtn.y + confirmBtn.h) {
@@ -1502,7 +1502,7 @@ function drawHighlightedRegion(drawW, drawH) {
   let scaleX = drawW / bgImg.width;
   let scaleY = drawH / bgImg.height;
   
-  // 打字机效果显示区域名称
+  //打字机效果显示区域名称
   if (charIdx < region.name.length) {
     if (frameCount % typeInterval === 0) {
       charIdx++;
@@ -1516,7 +1516,7 @@ function drawHighlightedRegion(drawW, drawH) {
     }
   }
   
-  // 绘制高亮的多边形
+  //绘制高亮的多边形
   push();
   fill(255, 80);
   stroke(255, 255);
